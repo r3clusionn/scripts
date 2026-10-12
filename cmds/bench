@@ -1,0 +1,5 @@
+#!/bin/sh
+# Measures every plan (about 3 minutes, asks for your doas password), with the
+# screen kept on so it doesn't skew the laptop's power. Unplug first for the
+# whole-laptop numbers. Don't use the laptop while it runs.
+cd "$(dirname "$0")" && exec root/keepawake doas sh root/plan-bench

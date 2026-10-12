@@ -28,14 +28,14 @@ The small shell scripts that run a minimal Gentoo laptop with dwm: power plans f
 
 ## How to install
 
-Requires a POSIX shell, doas, OpenRC, PipeWire with WirePlumber (`wpctl`), BlueZ, and `pkill`. `plan-bench` needs openssl.
+Requires a POSIX shell, doas, OpenRC, PipeWire with WirePlumber (`wpctl`), BlueZ, and `pkill`. The benchmark needs openssl and a C compiler with libX11 and libXext.
 
 ```sh
 git clone https://github.com/r3clusionn/scripts
 cd scripts
 doas sh install.sh                     # scripts, udev rules, boot script, doas rules for you
-mkdir -p ~/cmds && cp cmds/* ~/cmds/   # the power plan commands
-echo 'export PATH="$HOME/cmds:$PATH"' >> ~/.bashrc
+cp -r cmds ~/cmds                      # the power plan commands
+cc -O2 -o ~/cmds/root/keepawake ~/cmds/root/keepawake.c -lX11 -lXext   # for ./bench
 ```
 
 `install.sh` adds doas rules so that you can run `powerprofile` and start or stop the Bluetooth service without a password.
@@ -43,13 +43,15 @@ echo 'export PATH="$HOME/cmds:$PATH"' >> ~/.bashrc
 ## How to use
 
 ```sh
-balanced            # pick a plan (battery, balanced, performance, gaming)
-auto                # back to following the charger
-status              # what is set now
+cd ~/cmds
+./balanced          # pick a plan (battery, balanced, performance, gaming)
+./auto              # back to following the charger
+./status            # what is set now
+./bench             # measure every plan's power and speed (about 3 minutes)
+
 audio toggle        # PipeWire on or off
 bl +10              # backlight up 10%
 doas update         # full system update
-doas sh sbin/plan-bench   # measure each plan's power and speed
 ```
 
 In dwm the keys call them directly (see `dwm/config.h`).
@@ -69,7 +71,18 @@ In dwm the keys call them directly (see `dwm/config.h`).
 
 ## Measurements
 
-Power plans on battery (`plan-bench`; CPU package power from RAPL, throughput from `openssl speed` SHA-256 on 16 kB blocks, 5 s each):
+`./bench` runs `root/plan-bench` for each plan: 20 s idle, then `openssl speed` SHA-256 on 16 kB blocks for 8 s on one core and on all 24. It reads CPU package power from RAPL and, on battery, whole-laptop power from the battery. `root/keepawake` keeps the screen on meanwhile (no screen saver or DPMS), so a blanked screen doesn't lower the laptop's numbers, and restores the timeout after.
+
+Plugged in (backlight 100%):
+
+| Plan | Idle CPU | 1 core | 24 cores |
+|---|---|---|---|
+| battery | 3.6 W | 968 MB/s at 4.3 W | 17010 MB/s at 11.8 W |
+| balanced | 3.7 W | 1690 MB/s at 5.5 W | 29155 MB/s at 31.2 W |
+| performance | 3.8 W | 2431 MB/s at 9.7 W | 34201 MB/s at 63.0 W |
+| gaming | 5.3 W | 2536 MB/s at 13.5 W | 34557 MB/s at 63.0 W |
+
+On battery (earlier version of the benchmark, 5 s runs):
 
 | Plan | Idle | 1 core | 24 cores |
 |---|---|---|---|
@@ -78,9 +91,9 @@ Power plans on battery (`plan-bench`; CPU package power from RAPL, throughput fr
 | performance | 2.2 W | 1847 MB/s at 4.7 W | 27642 MB/s at 24.6 W |
 | gaming | 4.7 W | 1858 MB/s at 7.8 W | 27418 MB/s at 28.5 W |
 
-- **Plugged in,** the firmware allows about 62 W in performance (34500 MB/s on 24 cores). On battery it holds the package near 25–28 W even in performance, which is why balanced and performance are close there.
-- **Gaming** gives some CPU throughput to the GPU: its clocks are pinned high, which helps games and costs about 1.5 W at idle.
-- **Whole laptop idle on battery** (the battery's own reading over 20 s): battery 3.9 W, balanced 3.7 W, performance 3.8 W, gaming 5.3 W. The screen dominates at idle; the plans differ under load.
+- **Plugged in,** the firmware allows 63 W in performance and gaming. On battery it holds the package near 25–28 W even in performance, which is why balanced and performance are close there.
+- **Gaming** keeps the GPU clocks high, which helps games and costs about 1.5 W at idle.
+- **Whole-laptop power on battery** is being re-measured: the earlier readings were probably taken with the screen blanked by its 10-minute timeout.
 
 ## Verification
 

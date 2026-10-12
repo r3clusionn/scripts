@@ -1,0 +1,42 @@
+#!/bin/sh
+# plan-bench: for each power plan, CPU package power (RAPL) and, on battery,
+# whole-laptop power (the battery's own reading) at idle and under load, with
+# SHA-256 throughput (openssl) on one core and on all cores.
+# Run through ../bench, which keeps the screen on; alone: doas sh plan-bench.
+# Puts the plan you had back afterwards.
+set -eu
+E=/sys/class/powercap/intel-rapl:0/energy_uj
+AC=/sys/class/power_supply/ACAD/online
+BAT=$(ls -d /sys/class/power_supply/BAT* | head -1)
+BL=$(ls -d /sys/class/backlight/* | head -1)
+T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
+measure() { # command...: runs it; sets PKG (CPU package W) and SYS (laptop W or -)
+  : > "$T/s"
+  ( while :; do [ "$(cat $AC)" = 0 ] && cat "$BAT/power_now" >> "$T/s"; sleep 1; done ) &
+  sp=$!
+  a=$(cat $E); t0=$(date +%s%N)
+  "$@" > "$T/o" 2>/dev/null
+  b=$(cat $E); t1=$(date +%s%N)
+  kill $sp; wait $sp 2>/dev/null || true
+  PKG=$(awk -v e=$((b - a)) -v t=$((t1 - t0)) 'BEGIN {printf "%.1f", e * 1000 / t}')
+  SYS=$(awk '{s += $1; n++} END {if (n) printf "%.1f", s / n / 1e6; else print "-"}' "$T/s")
+}
+mbs() { awk '/^sha256/ {v = $NF} END {sub("k", "", v); printf "%.0f", v / 1000}' "$T/o"; }
+
+before=$(cat /run/powerprofile 2>/dev/null || echo "auto auto")
+n=$(nproc)
+[ "$(cat $AC)" = 0 ] && src="battery ($(cat $BAT/capacity)%)" || src="AC (no laptop W)"
+echo "power: $src, backlight $(( $(cat $BL/brightness) * 100 / $(cat $BL/max_brightness) ))%, $(date '+%F %H:%M')"
+printf "%-12s %15s %24s %26s\n" "" "idle W" "1 core" "$n cores"
+printf "%-12s %7s %7s %24s %26s\n" plan CPU laptop "MB/s  CPU W  laptop W" "MB/s  CPU W  laptop W"
+for plan in battery balanced performance gaming; do
+  /usr/local/sbin/powerprofile "$plan" > /dev/null
+  sleep 5
+  measure sleep 20; ip=$PKG is=$SYS
+  measure openssl speed -seconds 8 -bytes 16384 sha256; s1="$(mbs) $PKG $SYS"
+  measure openssl speed -multi "$n" -seconds 8 -bytes 16384 sha256; sn="$(mbs) $PKG $SYS"
+  printf "%-12s %7s %7s %10s %6s %7s %12s %6s %7s\n" "$plan" "$ip" "$is" $s1 $sn
+done
+set -- $before
+if [ "$2" = pinned ]; then /usr/local/sbin/powerprofile "$1"; else /usr/local/sbin/powerprofile auto; fi > /dev/null
+echo "plan back to: $(cat /run/powerprofile)"
