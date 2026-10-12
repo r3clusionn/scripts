@@ -1,0 +1,12 @@
+#!/bin/sh
+xrdb -merge "$HOME/.Xresources"
+# no accessibility bus (at-spi) for GTK apps
+export NO_AT_BRIDGE=1 GTK_A11Y=none
+# audio starts on demand: F2 toggles it, volume keys and bt-toggle start it
+# session bus forked off instead of a resident dbus-run-session parent
+export DBUS_SESSION_BUS_ADDRESS="unix:path=${XDG_RUNTIME_DIR:-/tmp}/bus"
+rm -f "${XDG_RUNTIME_DIR:-/tmp}/bus"
+dbus-daemon --session --fork --nopidfile --address="$DBUS_SESSION_BUS_ADDRESS"
+# event-driven status text (bl/vol/audio/bt-toggle send it SIGUSR1)
+"$HOME/.local/bin/dwmstat" &
+exec dwm

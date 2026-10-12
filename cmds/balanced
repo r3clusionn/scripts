@@ -1,0 +1,3 @@
+#!/bin/sh
+# balanced: switch power plan (see README; powerprofile status).
+exec doas -n /usr/local/sbin/powerprofile balanced

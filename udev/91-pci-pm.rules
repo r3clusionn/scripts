@@ -1,0 +1,2 @@
+# Runtime PM for all PCI devices except the Wi-Fi card (class 0x028000).
+ACTION=="add", SUBSYSTEM=="pci", ATTR{class}!="0x028000", ATTR{power/control}="auto"

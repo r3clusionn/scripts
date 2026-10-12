@@ -1,0 +1,38 @@
+#!/bin/sh
+# update - full system update (this box's "pacman -Syu"). Run: doas update
+# Sync the tree, show the plan and ask, update @world, remove what is no longer
+# needed, then list config updates without merging them.
+set -eu
+[ "$(id -u)" = 0 ] || { echo "run as: doas update" >&2; exit 1; }
+
+echo "== sync"
+emerge --sync --quiet
+
+echo "== update @world (answer y to go ahead)"
+# -u update, -D whole dependency tree, -N rebuild on USE changes, -a ask first.
+# make.conf adds --usepkg (cached binpkgs) and --with-bdeps=n.
+emerge -avuDN @world
+
+echo "== rebuild anything still linked to replaced libraries"
+emerge -q @preserved-rebuild
+
+echo "== remove packages nothing needs any more"
+emerge -a --depclean
+
+echo "== news"
+eselect news read new 2>/dev/null || true
+
+echo "== pending config updates"
+# These are almost always stock defaults that would undo this machine's
+# changes (inittab, rc.conf, locale.gen, hosts, bluetooth main.conf, ...).
+# Nothing is merged here: compare, then keep yours with `rm <._cfg file>`
+# or take the new one with `mv <._cfg file> <file>`.
+found=0
+for f in $(find /etc -name '._cfg*' 2>/dev/null); do
+  found=1
+  orig="$(dirname "$f")/$(basename "$f" | sed 's/^\._cfg[0-9]*_//')"
+  echo "--- $orig  vs  $f"
+  diff -u "$orig" "$f" | head -30 || true
+done
+[ "$found" = 1 ] || echo "none"
+echo "== done"

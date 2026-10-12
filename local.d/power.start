@@ -1,0 +1,3 @@
+#!/bin/sh
+# Apply the right power profile at boot (udev only fires on AC changes).
+/usr/local/sbin/powerprofile auto

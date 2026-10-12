@@ -1,0 +1,18 @@
+#!/bin/sh
+# bt-toggle: Bluetooth on/off (bound to the F1 key in dwm).
+# bluetoothd only runs while Bluetooth is on (service not in a runlevel).
+# bluetoothctl waits forever for a missing bluetoothd, so check the daemon
+# first and give every call a timeout.
+if pgrep -x bluetoothd >/dev/null &&
+   bluetoothctl --timeout 2 show 2>/dev/null | grep -q 'Powered: yes'; then
+  bluetoothctl --timeout 2 power off >/dev/null
+  doas /usr/bin/rc-service bluetooth stop >/dev/null 2>&1
+else
+  audio ensure
+  doas /usr/bin/rc-service bluetooth start >/dev/null 2>&1
+  for i in 1 2 3 4 5 6 7 8 9 10; do
+    bluetoothctl --timeout 2 power on >/dev/null 2>&1 && break
+    sleep 0.3
+  done
+fi
+pkill -USR1 -x dwmstat

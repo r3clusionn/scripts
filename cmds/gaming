@@ -1,0 +1,3 @@
+#!/bin/sh
+# gaming: switch power plan (see README; powerprofile status).
+exec doas -n /usr/local/sbin/powerprofile gaming

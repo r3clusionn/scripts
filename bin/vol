@@ -1,0 +1,7 @@
+#!/bin/sh
+# vol: wpctl wrapper for the volume/mute keys; starts audio first if it is off.
+# Afterwards dwmstat is told to refresh the status bar.
+audio ensure
+wpctl "$@"; rc=$?
+pkill -USR1 -x dwmstat
+exit $rc

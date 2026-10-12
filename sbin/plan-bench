@@ -1,0 +1,30 @@
+#!/bin/sh
+# plan-bench: each power plan's idle CPU package power, then single-core and
+# all-core throughput (openssl SHA-256) with package power, from RAPL.
+# Run: doas sh sbin/plan-bench   (puts the automatic plan back after)
+set -eu
+E=/sys/class/powercap/intel-rapl:0/energy_uj
+watts() { # command...; prints average package watts while it runs
+  a=$(cat $E); t0=$(date +%s%N)
+  "$@" >/dev/null 2>&1
+  b=$(cat $E); t1=$(date +%s%N)
+  awk -v e=$((b - a)) -v t=$((t1 - t0)) 'BEGIN {printf "%.1f", e * 1000 / t}'
+}
+score() { # threads: SHA-256 MB/s on 16 KB blocks
+  if [ "$1" = 1 ]; then openssl speed -seconds 5 -bytes 16384 sha256 2>/dev/null
+  else openssl speed -multi "$1" -seconds 5 -bytes 16384 sha256 2>/dev/null; fi |
+    awk '/^sha256/ {v=$NF} END {sub("k","",v); printf "%.0f", v/1000}'
+}
+n=$(nproc)
+printf "%-12s %10s %16s %16s\n" plan "idle W" "1 core MB/s (W)" "$n cores MB/s (W)"
+for plan in battery balanced performance gaming; do
+  /usr/local/sbin/powerprofile "$plan"
+  sleep 3
+  idle=$(watts sleep 10)
+  s1w=$(watts sh -c "openssl speed -seconds 5 -bytes 16384 sha256")
+  s1=$(score 1)
+  snw=$(watts sh -c "openssl speed -multi $n -seconds 5 -bytes 16384 sha256")
+  sn=$(score "$n")
+  printf "%-12s %10s %16s %16s\n" "$plan" "$idle" "$s1 ($s1w)" "$sn ($snw)"
+done
+/usr/local/sbin/powerprofile auto

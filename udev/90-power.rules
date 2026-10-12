@@ -1,0 +1,3 @@
+# Follow the charger with the automatic plan (a plan picked by hand stays).
+SUBSYSTEM=="power_supply", KERNEL=="ACAD", ATTR{online}=="0", RUN+="/usr/local/sbin/powerprofile plug battery"
+SUBSYSTEM=="power_supply", KERNEL=="ACAD", ATTR{online}=="1", RUN+="/usr/local/sbin/powerprofile plug ac"

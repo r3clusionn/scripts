@@ -1,0 +1,38 @@
+#!/bin/sh
+# audio: PipeWire stack on demand (not started at login, see ~/.xinitrc).
+#   audio toggle   F2 key (sends Super+Ctrl+Alt+Shift+Space several times per press)
+#   audio ensure   start if not running (volume keys via `vol`, bt-toggle)
+#   audio on|off
+running() { pgrep -u "$USER" -x wireplumber >/dev/null; }
+start() {
+  running && return 0
+  # 9>&- : do not leak the toggle lock fd into the long-running daemons
+  setsid -f gentoo-pipewire-launcher >/dev/null 2>&1 </dev/null 9>&-
+  i=0
+  until wpctl inspect @DEFAULT_AUDIO_SINK@ >/dev/null 2>&1; do
+    i=$((i + 1)); [ "$i" -ge 40 ] && break; sleep 0.1
+  done
+}
+stop() {
+  pkill -u "$USER" -x 'pipewire|wireplumber'
+  # wait for the socket to go away so the status bar reads the new state
+  i=0
+  while pgrep -u "$USER" -x 'pipewire|wireplumber' >/dev/null; do
+    i=$((i + 1)); [ "$i" -ge 20 ] && break; sleep 0.1
+  done
+}
+bar() { pkill -USR1 -x dwmstat; }
+case "$1" in
+  on) start; bar ;;
+  ensure) start ;;  # callers (vol, bt-toggle) refresh the bar themselves
+  off) stop; bar ;;
+  toggle)
+    # one key press fires the macro 3-5 times: hold a lock for 1 s, drop repeats
+    exec 9>"${XDG_RUNTIME_DIR:-/tmp}/audio-toggle.lock"
+    flock -n 9 || exit 0
+    if running; then stop; else start; fi
+    bar
+    sleep 1
+    ;;
+  *) echo "usage: audio on|off|toggle|ensure" >&2; exit 1 ;;
+esac
