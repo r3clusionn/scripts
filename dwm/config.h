@@ -117,7 +117,7 @@ static const Key keys[] = {
 	TAGKEYS(                        XK_9,                      8)
 	{ MODKEY|ShiftMask,             XK_q,      quit,           {0} },
 	/* region screenshot to clipboard; Esc in hacksaw cancels (no full-screen grab) */
-	{ MODKEY|ShiftMask,             XK_s,      spawn,          SHCMD("g=$(hacksaw) && shotgun -g \"$g\" - | xclip -selection clipboard -t image/png") },
+	{ MODKEY|ShiftMask,             XK_s,      spawn,          SHCMD("g=$(hacksaw) && grab -g \"$g\" - | xclip -selection clipboard -t image/png") },
 	{ 0,                XF86XK_AudioRaiseVolume,  spawn,       {.v = volup } },
 	{ 0,                XF86XK_AudioLowerVolume,  spawn,       {.v = voldown } },
 	{ 0,                XF86XK_AudioMute,         spawn,       {.v = volmute } },

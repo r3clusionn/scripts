@@ -1,6 +1,6 @@
 #!/bin/sh
 # Installs everything (needs root): the scripts to /usr/local/bin and
-# /usr/local/sbin (colormode is compiled there), the udev rules, the boot script, and the doas rules they
+# /usr/local/sbin (colormode and grab are compiled there), the udev rules, the boot script, and the doas rules they
 # need for the user running doas. The power plan commands (cmds/) are the
 # user's: copy them to ~/cmds and put that on PATH.
 # Run: doas sh install.sh
@@ -11,6 +11,7 @@ user=${DOAS_USER:-${SUDO_USER:-}}
 cd "$(dirname "$(readlink -f "$0")")"
 install -m 755 bin/audio bin/vol bin/bl bin/bt-toggle /usr/local/bin/
 cc -O2 -o /usr/local/bin/colormode bin/colormode.c -lX11 -lXrandr -lm
+cc -O2 -o /usr/local/bin/grab bin/grab.c -lX11 -lz
 install -m 755 sbin/update sbin/powerprofile /usr/local/sbin/
 install -m 644 udev/*.rules /etc/udev/rules.d/
 install -m 755 local.d/power.start /etc/local.d/
