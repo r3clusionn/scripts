@@ -1,5 +1,7 @@
 #!/bin/sh
 xrdb -merge "$HOME/.Xresources"
+# sRGB colours on the wide-gamut panel, in the display hardware
+colormode srgb >/dev/null 2>&1
 # no accessibility bus (at-spi) for GTK apps
 export NO_AT_BRIDGE=1 GTK_A11Y=none
 # audio starts on demand: F2 toggles it, volume keys and bt-toggle start it

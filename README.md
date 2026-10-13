@@ -22,13 +22,14 @@ The small shell scripts that run a minimal Gentoo laptop with dwm: power plans f
 - **`vol`:** a `wpctl` wrapper for the volume and mute keys that starts audio first.
 - **`bl +5|-5|N`:** the backlight in percent, without xbacklight. A udev rule makes `brightness` writable by the video group.
 - **`bt-toggle`:** Bluetooth power, starting and stopping `bluetoothd` with it, so it only runs while Bluetooth is on. Every `bluetoothctl` call has a timeout.
+- **`colormode srgb|native|status`:** accurate colours on the wide-gamut OLED. Nearly everything (desktop, browser, video) is sRGB or BT.709, which looks oversaturated on a panel with a gamut near DCI-P3. `srgb` (set at login by `xinitrc`) converts it in the display hardware, from the primaries in the panel's EDID; `native` shows the panel's full gamut.
 - **`update`:** sync, review and update @world, rebuild what links to replaced libraries, depclean, news, and list config updates without merging them.
 - **udev:** power plans follow the charger; runtime power management for every PCI device except the Wi-Fi card.
 - **dwm:** the `config.h` that binds these to keys (media keys, F1 Bluetooth, F2 audio, Alt+W browser, Alt+F fullscreen), and the `xinitrc` that starts the bar and a session bus without a resident parent.
 
 ## How to install
 
-Requires a POSIX shell, doas, OpenRC, PipeWire with WirePlumber (`wpctl`), BlueZ, and `pkill`. The benchmark needs openssl and a C compiler with libX11 and libXext.
+Requires a POSIX shell, doas, OpenRC, PipeWire with WirePlumber (`wpctl`), BlueZ, `pkill`, and a C compiler with libX11 and libXrandr (for `colormode`). The benchmark needs openssl and a C compiler with libX11 and libXext.
 
 ```sh
 git clone https://github.com/r3clusionn/scripts
@@ -51,6 +52,7 @@ cd ~/cmds
 
 audio toggle        # PipeWire on or off
 bl +10              # backlight up 10%
+colormode status    # sRGB or native colours, and the panel's primaries
 doas update         # full system update
 ```
 
@@ -67,6 +69,7 @@ In dwm the keys call them directly (see `dwm/config.h`).
   The current plan, and whether it was picked, is kept in `/run/powerprofile`. udev calls `powerprofile plug`, which does nothing while a plan is picked. `/etc/local.d/power.start` applies the automatic plan at boot.
 - **Audio on demand:** `audio ensure` starts the PipeWire launcher detached (closing the toggle lock's descriptor so the daemons don't keep it) and waits until the default sink exists. One press of the F2 key fires the key macro several times, so `toggle` holds a lock for a second and drops repeats.
 - **Bluetooth:** `bt-toggle` checks that `bluetoothd` is running before asking `bluetoothctl` anything, because `bluetoothctl` waits forever for a missing daemon.
+- **Colour:** the amdgpu X driver exposes the CRTC's colour pipeline as RandR properties. `colormode srgb` sets DEGAMMA_LUT to the sRGB curve, CTM to a matrix from sRGB to the panel's primaries (white kept at D65, so greys are unchanged), and GAMMA_LUT back to the sRGB curve. The display engine does this after the framebuffer at more than 10 bits, so it costs no GPU time or power and adds no banding. The curves are sRGB's rather than a pure 2.2 power: the kernel builds the hardware curve by linear interpolation of a LUT spaced evenly in linear light, which keeps sRGB's straight segment near black exact (a pure power curve lost 10-bit codes 1–4 to black in a simulation). At depth 24 the driver composes GAMMA_LUT with X's legacy gamma ramp, so `colormode` also sets that ramp to full scale; X's default ramp shifts every lookup one entry low and turns the darkest shade black.
 - **The bar** is updated with `pkill -USR1 -x dwmstat` after every change, so it never polls.
 
 ## Measurements
