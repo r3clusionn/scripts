@@ -13,6 +13,8 @@
 #   performance  EPP balance_performance, boost,    amd-pmf performance, hp-wmi performance
 #   gaming       EPP performance,         boost,    amd-pmf performance, hp-wmi performance,
 #                GPU clocks pinned high (steady frame times)
+# Every plan runs the SSD's PCIe link at Gen4 (the BIOS sets Gen3): 6.6 against
+# 3.4 GB/s reads, half the energy per GB read, no measurable idle cost.
 # Automatic: balanced on battery, performance plugged in.
 #
 # State in /run/powerprofile: "plan pinned|auto".
@@ -22,10 +24,10 @@ auto_plan() { on_ac && echo performance || echo balanced; }
 
 apply() {
   case "$1" in
-    battery)     epp=power;               boost=0; cap=0;       pmf=low-power;   hp=cool;        gpu=auto ;;
-    balanced)    epp=balance_power;       boost=1; cap=3600000; pmf=balanced;    hp=balanced;    gpu=auto ;;
-    performance) epp=balance_performance; boost=1; cap=0;       pmf=performance; hp=performance; gpu=auto ;;
-    gaming)      epp=performance;         boost=1; cap=0;       pmf=performance; hp=performance; gpu=high ;;
+    battery)     epp=power;               boost=0; cap=0;       pmf=low-power;   hp=cool;        gpu=auto; ssd=0 ;;
+    balanced)    epp=balance_power;       boost=1; cap=3600000; pmf=balanced;    hp=balanced;    gpu=auto; ssd=0 ;;
+    performance) epp=balance_performance; boost=1; cap=0;       pmf=performance; hp=performance; gpu=auto; ssd=0 ;;
+    gaming)      epp=performance;         boost=1; cap=0;       pmf=performance; hp=performance; gpu=high; ssd=0 ;;
     *) echo "powerprofile: unknown plan $1" >&2; exit 1 ;;
   esac
   echo "$boost" > /sys/devices/system/cpu/cpufreq/boost 2>/dev/null
@@ -45,7 +47,15 @@ apply() {
   for g in /sys/class/drm/card*/device/power_dpm_force_performance_level; do
     echo "$gpu" > "$g"
   done 2>/dev/null
-  logger -t powerprofile "$1: epp=$epp boost=$boost cap=$cap pmf=$pmf hp=$hp gpu=$gpu" 2>/dev/null || true
+  # SSD link speed through the kernel's PCIe link-speed control for the SSD's
+  # root port: 0 = the fastest both ends support (Gen4), 1 = one step lower
+  # (Gen3, what the BIOS sets). Measured: 6.6 against 3.4 GB/s, no link errors,
+  # idle 4.44 against 4.55 W on battery, 4.7 against 8.7 J to read 6 GiB.
+  port=$(basename "$(dirname "$(readlink -f /sys/class/nvme/nvme0/device)")")
+  for c in /sys/class/thermal/cooling_device*; do
+    [ "$(cat "$c/type")" = "PCIe_Port_Link_Speed_$port" ] && echo "$ssd" > "$c/cur_state"
+  done 2>/dev/null
+  logger -t powerprofile "$1: epp=$epp boost=$boost cap=$cap pmf=$pmf hp=$hp gpu=$gpu ssd=$ssd" 2>/dev/null || true
 }
 
 # The status bar shows the plan (dwmstat reads $state).
@@ -76,6 +86,7 @@ case "$1" in
     echo "cpu: epp $(cat $c/energy_performance_preference), boost $(cat /sys/devices/system/cpu/cpufreq/boost), max $(( $(cat $c/scaling_max_freq) / 1000 )) MHz"
     for pp in /sys/class/platform-profile/platform-profile-*; do echo "$(cat "$pp/name"): $(cat "$pp/profile")"; done
     for g in /sys/class/drm/card*/device/power_dpm_force_performance_level; do echo "gpu: $(cat "$g")"; done
+    echo "ssd: $(cat /sys/class/nvme/nvme0/device/current_link_speed 2>/dev/null)"
     exit 0 ;;
   *) echo "usage: powerprofile battery|balanced|performance|gaming|auto|status" >&2; exit 1 ;;
 esac

@@ -17,6 +17,8 @@ The small shell scripts that run a minimal Gentoo laptop with dwm: power plans f
   | performance | balance_performance | full (5.3 GHz) | performance / performance | automatic |
   | gaming | performance | full | performance / performance | pinned high |
 
+  Every plan also runs the SSD's PCIe link at Gen4. The firmware sets Gen3, which halves its read speed; Gen4 costs nothing measurable at idle and uses half the energy per gigabyte read (see Measurements).
+
   A plan you pick stays when you plug in or unplug. `auto` follows the charger: balanced on battery, performance plugged in. A launcher can ask for `game` and `restore`; those leave a picked plan alone. The bar shows `⚙ bal` (picked) or `⚙ auto:bal`.
 - **`audio on|off|toggle|ensure`:** PipeWire and WirePlumber on demand (bound to F2). `ensure` starts them for whoever needs sound: the volume keys, Bluetooth, media players.
 - **`vol`:** a `wpctl` wrapper for the volume and mute keys that starts audio first.
@@ -65,7 +67,8 @@ In dwm the keys call them directly (see `dwm/config.h`).
   - the CPU energy-performance preference and maximum frequency per policy (amd-pstate active);
   - the global boost switch;
   - the two platform profiles, amd-pmf (the chip's power limits) and hp-wmi (the firmware's fan and thermal profile);
-  - the GPU's DPM level.
+  - the GPU's DPM level;
+  - the SSD's PCIe link speed, through the kernel's link-speed control for its root port (the `PCIe_Port_Link_Speed_<port>` cooling device: 0 is the fastest speed both ends support, 1 one step lower). `status` prints the current link speed.
 
   The current plan, and whether it was picked, is kept in `/run/powerprofile`. udev calls `powerprofile plug`, which does nothing while a plan is picked. `/etc/local.d/power.start` applies the automatic plan at boot.
 - **Audio on demand:** `audio ensure` starts the PipeWire launcher detached (closing the toggle lock's descriptor so the daemons don't keep it) and waits until the default sink exists. One press of the F2 key fires the key macro several times, so `toggle` holds a lock for a second and drops repeats.
@@ -97,6 +100,14 @@ On battery (earlier version of the benchmark, 5 s runs):
 
 - **Plugged in,** the firmware allows 63 W in performance and gaming. On battery it holds the package near 25–28 W even in performance, which is why balanced and performance are close there.
 - **Gaming** keeps the GPU clocks high, which helps games and costs about 1.5 W at idle.
+- **SSD link** (KIOXIA BG6, PCIe Gen4 x4, set to Gen3 by the firmware), on battery with the balanced plan:
+
+  | Link | 4 parallel 2 GiB reads | One 6 GiB read | Idle, whole laptop (4 alternating rounds) | Package energy to read 6 GiB |
+  |---|---|---|---|---|
+  | Gen3 (firmware) | 3441 MiB/s | 3327 MiB/s | 4.55 W | 8.7 J in 1.87 s |
+  | Gen4 | 6599 MiB/s | 6319 MiB/s | 4.44 W | 4.7 J in 0.99 s |
+
+  At idle the link sits in ASPM L1 at either speed. Under load Gen4 draws the same power for half the time.
 - **Whole-laptop power on battery** is being re-measured: the earlier readings were probably taken with the screen blanked by its 10-minute timeout.
 
 ## Verification
@@ -105,6 +116,7 @@ On battery (earlier version of the benchmark, 5 s runs):
 - A picked plan stayed through simulated charger events (`powerprofile plug ac` and `plug battery`). After `auto` it followed the charger. `game` and `restore` switched only while automatic.
 - The bar showed `⚙ game` and `⚙ auto:bal` within 0.3 s of switching.
 - `bl +5` and `bl -5` changed the backlight and the bar within 0.2 s.
+- SSD link: the root port and the SSD both advertise Gen4 x4; after switching, `current_link_speed` read 16.0 GT/s and back to 8.0 GT/s. The PCIe AER error counters of the SSD and its root port stayed at 0 through the read tests.
 
 ## Limits
 
