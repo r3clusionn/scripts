@@ -26,13 +26,14 @@ The small shell scripts that run a minimal Gentoo laptop with dwm: power plans f
 - **`bt-toggle`:** Bluetooth power, starting and stopping `bluetoothd` with it, so it only runs while Bluetooth is on. Every `bluetoothctl` call has a timeout.
 - **`colormode srgb|native|status`:** accurate colours on the wide-gamut OLED. Nearly everything (desktop, browser, video) is sRGB or BT.709, which looks oversaturated on a panel with a gamut near DCI-P3. `srgb` (set at login by `xinitrc`) converts it in the display hardware, from the primaries in the panel's EDID; `native` shows the panel's full gamut.
 - **`grab [-g WxH+X+Y] FILE|-`:** a screen region as PNG at any X depth (shotgun writes nothing at depth 30). The region screenshot key uses it with hacksaw and xclip.
+- **`xcb8bit.so`:** an `LD_PRELOAD` shim for Thorium at X depth 30. ANGLE has no config for the 10-bit root visual, so Chromium composites on the CPU; the shim makes Thorium alone see the 32-bit ARGB visual as its root, so it composites on the GPU while X stays at 10 bits. How to start Thorium with it is at the top of `bin/xcb8bit.c`.
 - **`update`:** sync, review and update @world, rebuild what links to replaced libraries, depclean, news, and list config updates without merging them.
 - **udev:** power plans follow the charger; runtime power management for every PCI device except the Wi-Fi card.
-- **dwm:** the `config.h` that binds these to keys (media keys, F1 Bluetooth, F2 audio, Alt+W browser, Alt+F fullscreen), and the `xinitrc` that starts the bar and a session bus without a resident parent.
+- **dwm:** the `config.h` that binds these to keys (media keys, F1 Bluetooth, F2 audio, Alt+W browser, Alt+F fullscreen), the `xinitrc` that starts the bar and a session bus without a resident parent, and `hide-vacant-tags.patch`, which shows only occupied and selected tags in the bar (put it in `/etc/portage/patches/x11-wm/dwm/`).
 
 ## How to install
 
-Requires a POSIX shell, doas, OpenRC, PipeWire with WirePlumber (`wpctl`), BlueZ, `pkill`, and a C compiler with libX11, libXrandr and zlib (for `colormode` and `grab`). The benchmark needs openssl and a C compiler with libX11 and libXext.
+Requires a POSIX shell, doas, OpenRC, PipeWire with WirePlumber (`wpctl`), BlueZ, `pkill`, and a C compiler with libX11, libXrandr, libxcb and zlib (for `colormode`, `grab` and `xcb8bit.so`). The benchmark needs openssl and a C compiler with libX11 and libXext.
 
 ```sh
 git clone https://github.com/r3clusionn/scripts
