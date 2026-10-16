@@ -1,0 +1,5 @@
+#!/bin/sh
+# hdr: the HDR switch. on: a fullscreen HDR video (mpv, media-player) puts the
+# screen in HDR mode; off: HDR video plays tone mapped in SDR. No argument
+# shows the setting. Kept across logins (colormode auto, see ~/cmds/README).
+exec colormode auto ${1:-}

@@ -24,7 +24,7 @@ The small shell scripts that run a minimal Gentoo laptop with dwm: power plans f
 - **`vol`:** a `wpctl` wrapper for the volume and mute keys that starts audio first.
 - **`bl +5|-5|N`:** the backlight in percent, without xbacklight. A udev rule makes `brightness` writable by the video group.
 - **`bt-toggle`:** Bluetooth power, starting and stopping `bluetoothd` with it, so it only runs while Bluetooth is on. Every `bluetoothctl` call has a timeout.
-- **`colormode srgb|native|status`:** accurate colours on the wide-gamut OLED. Nearly everything (desktop, browser, video) is sRGB or BT.709, which looks oversaturated on a panel with a gamut near DCI-P3. `srgb` (set at login by `xinitrc`) converts it in the display hardware, from the primaries in the panel's EDID; `native` shows the panel's full gamut.
+- **`colormode srgb|native|hdr|watch|auto|test|status`:** accurate colours on the wide-gamut OLED, and HDR for fullscreen video (`watch`, with the X driver patch from [x11-amdgpu-hdr](https://github.com/r3clusionn/x11-amdgpu-hdr); `cmds/hdr on|off` is its switch; the `colormode-hdr.so` mpv plugin goes with it). Nearly everything (desktop, browser, video) is sRGB or BT.709, which looks oversaturated on a panel with a gamut near DCI-P3. `srgb` (set at login by `xinitrc`) converts it in the display hardware, from the primaries in the panel's EDID; `native` shows the panel's full gamut.
 - **`grab [-g WxH+X+Y] FILE|-`:** a screen region as PNG at any X depth (shotgun writes nothing at depth 30). The region screenshot key uses it with hacksaw and xclip.
 - **`xcb8bit.so`:** an `LD_PRELOAD` shim for Thorium at X depth 30. ANGLE has no config for the 10-bit root visual, so Chromium composites on the CPU; the shim makes Thorium alone see the 32-bit ARGB visual as its root, so it composites on the GPU while X stays at 10 bits. How to start Thorium with it is at the top of `bin/xcb8bit.c`.
 - **`update`:** sync, review and update @world, rebuild what links to replaced libraries, depclean, news, and list config updates without merging them.
@@ -53,10 +53,11 @@ cd ~/cmds
 ./auto              # back to following the charger
 ./status            # what is set now
 ./bench             # measure every plan's power and speed (about 3 minutes)
+./hdr on            # HDR for fullscreen HDR video (off: always SDR)
 
 audio toggle        # PipeWire on or off
 bl +10              # backlight up 10%
-colormode status    # sRGB or native colours, and the panel's primaries
+colormode status    # sRGB or native colours, the panel's primaries and HDR range
 doas update         # full system update
 ```
 
