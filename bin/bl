@@ -1,7 +1,9 @@
 #!/bin/sh
 # bl: set backlight relative (+N / -N percent) or absolute (N percent).
 # Replaces acpilight's xbacklight; needs group-writable brightness (udev rule).
-d=/sys/class/backlight/amdgpu_bl1
+# amdgpu_bl0 with amdgpu built into the kernel, amdgpu_bl1 when it was a module
+# (simpledrm took card0 first)
+for d in /sys/class/backlight/amdgpu_bl*; do break; done
 max=$(cat "$d/max_brightness"); cur=$(cat "$d/brightness")
 case "$1" in
   +*|-*) new=$(( cur + max * $1 / 100 )) ;;

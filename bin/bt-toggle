@@ -3,16 +3,21 @@
 # bluetoothd only runs while Bluetooth is on (service not in a runlevel).
 # bluetoothctl waits forever for a missing bluetoothd, so check the daemon
 # first and give every call a timeout.
+# One toggle at a time: presses while one runs (and for 1 s after) are dropped,
+# otherwise overlapping runs undo each other and the end state is random.
+exec 9>"${XDG_RUNTIME_DIR:-/tmp}/bt-toggle.lock"
+flock -n 9 || exit 0
 if pgrep -x bluetoothd >/dev/null &&
    bluetoothctl --timeout 2 show 2>/dev/null | grep -q 'Powered: yes'; then
   bluetoothctl --timeout 2 power off >/dev/null
-  doas /usr/bin/rc-service bluetooth stop >/dev/null 2>&1
+  doas /usr/bin/rc-service bluetooth stop >/dev/null 2>&1 9>&-
 else
   audio ensure
-  doas /usr/bin/rc-service bluetooth start >/dev/null 2>&1
+  doas /usr/bin/rc-service bluetooth start >/dev/null 2>&1 9>&-   # bluetoothd must not keep the lock
   for i in 1 2 3 4 5 6 7 8 9 10; do
     bluetoothctl --timeout 2 power on >/dev/null 2>&1 && break
     sleep 0.3
   done
 fi
 pkill -USR1 -x dwmstat
+sleep 1

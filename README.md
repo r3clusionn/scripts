@@ -122,7 +122,7 @@ On battery (earlier version of the benchmark, 5 s runs):
 
 ## Limits
 
-- Written for one laptop: the backlight device (`amdgpu_bl1`), the charger (`ACAD`), and the HP and AMD platform profiles are this machine's. Other laptops need those names changed.
+- Written for one laptop: the backlight device (`amdgpu_bl*`), the charger (`ACAD`), and the HP and AMD platform profiles are this machine's. Other laptops need those names changed.
 - The refresh rate isn't part of the plans: the system has no `xrandr`.
 - OpenRC and doas, not systemd and sudo.
 

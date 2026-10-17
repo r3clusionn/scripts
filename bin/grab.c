@@ -9,6 +9,10 @@
  * writes an RGB PNG (zlib for compression and CRCs). Used by dwm's region
  * screenshot key with hacksaw for the selection and xclip for the clipboard.
  *
+ * It reads in strips of 64 rows: X (glamor) reads the screen back through a GPU
+ * buffer the size of the request, and mesa keeps that buffer cached, so one
+ * full-screen request left ~20 MiB in the X server until it exited.
+ *
  * Build: cc -O2 -o grab grab.c -lX11 -lz
  */
 #include <X11/Xlib.h>
@@ -91,29 +95,32 @@ int main(int argc, char **argv)
 		h = ra.height;
 		x = y = 0;
 	}
-	XImage *im = XGetImage(d, root, x, y, w, h, AllPlanes, ZPixmap);
-	if (!im) {
-		fprintf(stderr, "grab: XGetImage failed\n");
-		return 1;
-	}
-	int rs = shift_of(im->red_mask), gs = shift_of(im->green_mask), bs = shift_of(im->blue_mask);
-	int rb = bits_of(im->red_mask), gb = bits_of(im->green_mask), bb = bits_of(im->blue_mask);
-
 	/* Rows prefixed with filter type 0, then deflated. */
 	size_t raw_len = (size_t)h * (1 + 3 * (size_t)w);
 	unsigned char *raw = malloc(raw_len), *p = raw;
-	for (unsigned yy = 0; yy < h; yy++) {
-		*p++ = 0;
-		for (unsigned xx = 0; xx < w; xx++) {
-			unsigned long px = XGetPixel(im, xx, yy);
-			unsigned long r = (px & im->red_mask) >> rs, g = (px & im->green_mask) >> gs,
-				      b = (px & im->blue_mask) >> bs;
-			*p++ = rb > 8 ? r >> (rb - 8) : r << (8 - rb);
-			*p++ = gb > 8 ? g >> (gb - 8) : g << (8 - gb);
-			*p++ = bb > 8 ? b >> (bb - 8) : b << (8 - bb);
+	enum { STRIP = 64 }; /* rows per XGetImage, see the top comment */
+	for (unsigned y0 = 0; y0 < h; y0 += STRIP) {
+		unsigned n = h - y0 < STRIP ? h - y0 : STRIP;
+		XImage *im = XGetImage(d, root, x, y + (int)y0, w, n, AllPlanes, ZPixmap);
+		if (!im) {
+			fprintf(stderr, "grab: XGetImage failed\n");
+			return 1;
 		}
+		int rs = shift_of(im->red_mask), gs = shift_of(im->green_mask), bs = shift_of(im->blue_mask);
+		int rb = bits_of(im->red_mask), gb = bits_of(im->green_mask), bb = bits_of(im->blue_mask);
+		for (unsigned yy = 0; yy < n; yy++) {
+			*p++ = 0;
+			for (unsigned xx = 0; xx < w; xx++) {
+				unsigned long px = XGetPixel(im, xx, yy);
+				unsigned long r = (px & im->red_mask) >> rs, g = (px & im->green_mask) >> gs,
+					      b = (px & im->blue_mask) >> bs;
+				*p++ = rb > 8 ? r >> (rb - 8) : r << (8 - rb);
+				*p++ = gb > 8 ? g >> (gb - 8) : g << (8 - gb);
+				*p++ = bb > 8 ? b >> (bb - 8) : b << (8 - bb);
+			}
+		}
+		XDestroyImage(im);
 	}
-	XDestroyImage(im);
 	XCloseDisplay(d);
 	uLongf zlen = compressBound(raw_len);
 	unsigned char *z = malloc(zlen);
