@@ -1,3 +1,6 @@
 #!/bin/sh
 # Apply the right power profile at boot (udev only fires on AC changes).
-/usr/local/sbin/powerprofile auto
+# Waits for udev in the background: amd-pmf and hp-wmi are modules and may
+# still be loading, and boot no longer waits for udev-settle (consolefont
+# was removed from boot 2026-10-16).
+( udevadm settle --timeout=30; /usr/local/sbin/powerprofile auto ) >/dev/null 2>&1 </dev/null &

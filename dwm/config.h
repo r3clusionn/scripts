@@ -8,11 +8,11 @@ static const int showbar            = 1;        /* 0 means no bar */
 static const int topbar             = 1;        /* 0 means bottom bar */
 static const char *fonts[]          = { "monospace:size=10" };
 static const char dmenufont[]       = "monospace:size=10";
-static const char col_gray1[]       = "#222222";
+static const char col_gray1[]       = "#000000"; /* black bar: OLED pixels off (batch 16) */
 static const char col_gray2[]       = "#444444";
 static const char col_gray3[]       = "#bbbbbb";
 static const char col_gray4[]       = "#eeeeee";
-static const char col_cyan[]        = "#005577";
+static const char col_cyan[]        = "#444444";
 static const char *colors[][3]      = {
 	/*               fg         bg         border   */
 	[SchemeNorm] = { col_gray3, col_gray1, col_gray2 },
@@ -116,8 +116,8 @@ static const Key keys[] = {
 	TAGKEYS(                        XK_8,                      7)
 	TAGKEYS(                        XK_9,                      8)
 	{ MODKEY|ShiftMask,             XK_q,      quit,           {0} },
-	/* region screenshot to clipboard; Esc in hacksaw cancels (no full-screen grab) */
-	{ MODKEY|ShiftMask,             XK_s,      spawn,          SHCMD("g=$(hacksaw) && grab -g \"$g\" - | xclip -selection clipboard -t image/png") },
+	/* region screenshot to clipboard; Esc or right click in xregion cancels (no full-screen grab) */
+	{ MODKEY|ShiftMask,             XK_s,      spawn,          SHCMD("g=$(xregion) && grab -g \"$g\" - | xclip -selection clipboard -t image/png") },
 	{ 0,                XF86XK_AudioRaiseVolume,  spawn,       {.v = volup } },
 	{ 0,                XF86XK_AudioLowerVolume,  spawn,       {.v = voldown } },
 	{ 0,                XF86XK_AudioMute,         spawn,       {.v = volmute } },

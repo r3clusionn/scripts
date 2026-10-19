@@ -1,7 +1,12 @@
 #!/bin/sh
-xrdb -merge "$HOME/.Xresources"
+# X resources (Xft.dpi, cursor) onto the root window; xresload replaces xrdb
+"$HOME/.local/bin/xresload" "$HOME/.Xresources"
 # sRGB colours on the wide-gamut panel, in the display hardware
 colormode srgb >/dev/null 2>&1
+# HDR while an HDR video is fullscreen and on screen (log: runtime dir)
+colormode watch 2>"${XDG_RUNTIME_DIR:-/tmp}/colormode.log" &
+# HiDPI cursor (theme lives in ~/.icons/Adwaita)
+export XCURSOR_THEME=Adwaita XCURSOR_SIZE=48
 # no accessibility bus (at-spi) for GTK apps
 export NO_AT_BRIDGE=1 GTK_A11Y=none
 # audio starts on demand: F2 toggles it, volume keys and bt-toggle start it

@@ -13,6 +13,11 @@ echo "== update @world (answer y to go ahead)"
 # make.conf adds --usepkg (cached binpkgs) and --with-bdeps=n.
 emerge -avuDN @world
 
+echo "== locale archive"
+# locale-gen (a perl script) is in package.provided, so glibc's postinst can't
+# rebuild the archive; glibc's own localedef does it (en_US.UTF-8, see /etc/locale.gen).
+localedef -i en_US -f UTF-8 en_US.UTF-8
+
 echo "== rebuild anything still linked to replaced libraries"
 emerge -q @preserved-rebuild
 
