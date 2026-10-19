@@ -40,7 +40,7 @@ The small shell scripts that run a minimal Gentoo laptop with dwm: power plans f
 
 ## How to install
 
-Requires a POSIX shell, doas, OpenRC, PipeWire with WirePlumber (`wpctl`), BlueZ, `pkill`, and a C compiler with libX11, libXrandr, libxcb and zlib (for `colormode`, `grab`, `xclip` and `xcb8bit.so`). The benchmark needs openssl and a C compiler with libX11 and libXext.
+Requires a POSIX shell, doas, OpenRC, PipeWire with WirePlumber (`wpctl`), BlueZ, `pkill`, and a C compiler with libX11, libXrandr, libxcb and zlib (for `colormode`, `grab`, `xclip` and `xcb8bit.so`). The benchmark needs openssl and a C compiler with libX11 and libXext. `devup` needs curl, Python 3, xz and tar.
 
 ```sh
 git clone https://github.com/r3clusionn/scripts
