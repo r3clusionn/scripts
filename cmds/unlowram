@@ -1,0 +1,34 @@
+#!/bin/sh
+# unlowram: undo ~/cmds/lowram in the same boot: drivers, udev, swap, wifi (iwd),
+# the tty2 getty, the session bus, colormode and dwmstat. Anything still
+# running is left alone, so it is safe to run twice. (The SSD buffer is off for
+# good: boot entry option + /etc/local.d/nvme-hmb.start; lowram doesn't touch it.)
+
+doas sh -s <<'EOF'
+# udev's database, which lowram kept on disk while udevd was down
+if [ -f /var/tmp/lowram-udev.tar ]; then
+	rm -rf /run/udev
+	tar -C /run -xf /var/tmp/lowram-udev.tar && rm -f /var/tmp/lowram-udev.tar
+fi
+# lowram SIGKILLed these, so OpenRC still has them as started: zap, then start
+pgrep -x systemd-udevd >/dev/null || { rc-service udev zap; rc-service udev start; }
+# udevd is up first, so the devices the drivers bring back get their rules
+[ -f /run/lowram.modules ] && modprobe -aq $(cat /run/lowram.modules)
+modprobe -q rtw89_8922ae   # wifi, even if the saved list is missing
+rm -f /run/lowram.modules
+udevadm settle
+grep -q '^/' /proc/swaps || swapon -a
+pgrep -x iwd >/dev/null || { rc-service iwd zap; rc-service iwd start; }
+pgrep -f 'agetty.* tty2' >/dev/null || { rc-service agetty.tty2 zap; rc-service agetty.tty2 start; }
+EOF
+
+# what .xinitrc starts, detached from this terminal
+run=${XDG_RUNTIME_DIR:-/tmp}
+if ! pgrep -u "$(id -u)" -x dbus-daemon >/dev/null; then
+	rm -f "$run/bus"
+	dbus-daemon --session --fork --nopidfile --address="${DBUS_SESSION_BUS_ADDRESS:-unix:path=$run/bus}"
+fi
+pgrep -x colormode >/dev/null || setsid -f colormode watch 2>"$run/colormode.log" </dev/null >/dev/null
+pgrep -x dwmstat >/dev/null || setsid -f "$HOME/.local/bin/dwmstat" </dev/null >/dev/null 2>&1
+[ -d /sys/class/net/wlan0 ] || echo "wifi is not back: doas modprobe rtw89_8922ae; doas rc-service iwd restart"
+echo restored

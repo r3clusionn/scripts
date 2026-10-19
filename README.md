@@ -28,6 +28,8 @@ The small shell scripts that run a minimal Gentoo laptop with dwm: power plans f
 - **`grab [-g WxH+X+Y] FILE|-`:** a screen region as PNG at any X depth (shotgun writes nothing at depth 30). The region screenshot key uses it with hacksaw and xclip.
 - **`xcb8bit.so`:** an `LD_PRELOAD` shim for Thorium at X depth 30. ANGLE has no config for the 10-bit root visual, so Chromium composites on the CPU; the shim makes Thorium alone see the 32-bit ARGB visual as its root, so it composites on the GPU while X stays at 10 bits. How to start Thorium with it is at the top of `bin/xcb8bit.c`.
 - **`update`:** sync, review and update @world, rebuild what links to replaced libraries, depclean, news, and list config updates without merging them.
+- **`cmds/fetch`:** [rfetch](https://github.com/r3clusionn/rfetch) at the top of each new terminal window. With no argument it toggles; `on`, `off` and `status` also work. It comments one line in `~/.bashrc` in or out, and adds the line if it is missing. The line checks `$DISPLAY`, so nothing prints on the console login just before X starts.
+- **`cmds/lowram`, `cmds/unlowram`:** a one-off lowest-RAM rfetch screenshot. Sourced in st under dwm (`. ~/cmds/lowram`), `lowram` kills every process except X, elogind, the system bus and the shell's own ancestors (st, dwm, xinit, login), unloads the drivers a screenshot doesn't need (Wi-Fi, Bluetooth, camera, sound, Thunderbolt, sensors), turns swap off, drops caches and shows rfetch. Enter and a drag with [xregion](https://github.com/r3clusionn/xregion) save `~/lowram.png` through `grab`; then `unlowram` brings back the drivers, udev, swap, Wi-Fi, the session bus and the bar in the same boot. elogind and the system bus have to stay: without the bus elogind shuts down and takes X's screen and input with it, and iwd quits.
 - **udev:** power plans follow the charger; runtime power management for every PCI device except the Wi-Fi card.
 - **dwm:** the `config.h` that binds these to keys (media keys, F1 Bluetooth, F2 audio, Alt+W browser, Alt+F fullscreen), the `xinitrc` that starts the bar and a session bus without a resident parent, and `hide-vacant-tags.patch`, which shows only occupied and selected tags in the bar (put it in `/etc/portage/patches/x11-wm/dwm/`).
 
@@ -54,6 +56,8 @@ cd ~/cmds
 ./status            # what is set now
 ./bench             # measure every plan's power and speed (about 3 minutes)
 ./hdr on            # HDR for fullscreen HDR video (off: always SDR)
+./fetch             # rfetch in new terminals, on or off
+. ~/cmds/lowram     # lowest-RAM rfetch screenshot (closes everything; unlowram undoes it)
 
 audio toggle        # PipeWire on or off
 bl +10              # backlight up 10%

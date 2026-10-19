@@ -1,0 +1,114 @@
+# lowram: one-time lowest-RAM rfetch screenshot. Run it right after booting the
+# Gentoo-lowram entry, in the st under dwm, sourced so rfetch still sees bash
+# and st:   . ~/cmds/lowram
+# Kills every process except init, this shell's ancestors (st, dwm, xinit,
+# login), X, elogind and the system bus, saves the module list and unloads
+# drivers the screenshot doesn't need (wifi, bluetooth, camera, sound,
+# thunderbolt, sensors), turns swap off, drops caches and shows rfetch.
+# Press Enter and drag the region: it is saved as ~/lowram.png and ~/cmds/unlowram
+# puts everything back in the same boot.
+
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+	echo "run it sourced: . ~/cmds/lowram" >&2
+	exit 1
+fi
+[ -n "$DISPLAY" ] || { echo "run it in st under dwm" >&2; return 1; }
+doas true || return 1
+
+doas sh -s <<'EOF'
+G=8be4df61-93ca-11d2-aa0d-00e098032b8c
+ev=/sys/firmware/efi/efivars
+# the one-time Gentoo-lowram boot entry, once the firmware has used up BootNext
+if [ -e $ev/Boot00F0-$G ] && [ ! -e $ev/BootNext-$G ]; then
+	python3 -I -c 'import fcntl, os, struct, sys
+fd = os.open(sys.argv[1], os.O_RDONLY)
+fl = struct.unpack("i", fcntl.ioctl(fd, 0x80086601, b"\0" * 4))[0]
+fcntl.ioctl(fd, 0x40086602, struct.pack("i", fl & ~0x10))
+os.close(fd)
+os.unlink(sys.argv[1])' $ev/Boot00F0-$G
+fi
+
+ppid() { sed -n 's/^PPid:\t//p' /proc/$1/status 2>/dev/null; }
+keep=' 1 2 '
+p=$$
+while [ "$p" -gt 1 ]; do
+	keep="$keep$p "
+	p=$(ppid $p)
+done
+# elogind and the system bus stay: elogind shuts down cleanly when the bus
+# goes, which revokes X's screen and input, and iwd quits with the bus
+for p in $(pgrep -x elogind-daemon) $(cat /run/dbus.pid 2>/dev/null); do
+	keep="$keep$p "
+done
+targets() {
+	for d in /proc/[0-9]*; do
+		p=${d#/proc/}
+		case $keep in *" $p "*) continue ;; esac
+		read -r c 2>/dev/null <$d/comm || continue
+		case $c in X|Xorg) continue ;; esac
+		[ "$(ppid $p)" = 2 ] && continue
+		echo $p
+	done
+}
+# freeze everything before killing anything, so nothing reacts to the others dying
+t=$(targets)
+kill -STOP $t 2>/dev/null
+kill -9 $t 2>/dev/null
+sleep 0.3
+kill -9 $(targets) 2>/dev/null
+
+# ~/cmds/unlowram loads these again. Only the first run saves the list: a second run
+# would save the already trimmed one, and unlowram would never bring wifi back
+[ -s /run/lowram.modules ] || cut -d' ' -f1 /proc/modules >/run/lowram.modules
+# Passes until four in a row (0.5 s apart) remove nothing: the sound card releases
+# its codecs in the background, so snd_hda_codec, snd_pcm, snd... can still look in
+# use for a moment. Stopping at the first empty pass left those 7 loaded, holding
+# two 2 MiB module code blocks (measured on b26prof).
+idle=0
+while [ $idle -lt 4 ]; do
+	n=0
+	while read -r m _ used _; do
+		case $m in
+		rtw89*|mac80211|cfg80211|libarc4|btusb|btrtl|btintel|bluetooth|rfkill|crc16) ;;
+		uvc*|videobuf2*|videodev|mc|snd*|soundcore|cs_dsp|serial_multi_instantiate) ;;
+		thunderbolt|amd_sfh|hp_wmi|sparse_keymap|wmi_bmof|k10temp|*rapl*|serio_raw|acpi_tad) ;;
+		amd_pmf|amdtee|tee) ;; # since b23 the last modules: none left frees their code blocks
+		*) continue ;;
+		esac
+		[ "$used" = 0 ] && rmmod $m 2>/dev/null && n=$((n + 1))
+	done </proc/modules
+	if [ $n = 0 ]; then idle=$((idle + 1)); sleep 0.5; else idle=0; fi
+done
+
+# udev's database (~0.7 MiB of tmpfs) waits on disk while udevd is down (killed above);
+# unlowram puts it back before udevd starts again
+if [ -d /run/udev ] && [ ! -e /var/tmp/lowram-udev.tar ]; then
+	tar -C /run -cf /var/tmp/lowram-udev.tar udev && rm -rf /run/udev
+fi
+
+# swap is empty but its page map (4 MiB per 16 GiB) is kernel memory
+swapoff -a
+sync
+echo 3 >/proc/sys/vm/drop_caches
+# give back the slab pages each CPU holds half empty (-6.6 MiB measured)
+for f in /sys/kernel/slab/*/shrink; do echo 1 >$f; done
+# the killed processes' task_structs are freed after an RCU grace period, so a
+# second pass a second later frees their slab pages too (-5.5 MiB measured)
+sleep 1
+echo 3 >/proc/sys/vm/drop_caches
+for f in /sys/kernel/slab/*/shrink; do echo 1 >$f; done
+EOF
+
+sleep 1
+# on a measurement kernel (~/work/batch27): save where the memory goes
+[ ! -e /proc/allocinfo ] || doas sh ~/work/batch27/measure.sh lowram >/dev/null
+clear
+rfetch
+# Enter, then drag the region (Esc in xregion cancels and shows rfetch again)
+while :; do
+	read -rs
+	g=$(xregion) && grab -g "$g" - >~/lowram.png && [ -s ~/lowram.png ] && break
+	clear
+	rfetch
+done
+~/cmds/unlowram

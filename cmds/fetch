@@ -1,0 +1,29 @@
+#!/bin/sh
+# fetch: rfetch at the top of each new terminal window. No argument toggles it;
+# on | off set it, status shows it. Comments the line in ~/.bashrc in or out.
+rc=$HOME/.bashrc
+line='[ -n "$DISPLAY" ] && rfetch'
+
+state() {
+	if grep -qxF "$line" "$rc"; then echo on
+	elif grep -qxF "#$line" "$rc"; then echo off
+	else echo missing; fi
+}
+
+set_to() {
+	tmp=$rc.fetch.$$
+	awk -v l="$line" -v want="$1" '
+		$0 == l || $0 == "#" l { $0 = (want == "on" ? "" : "#") l; found = 1 }
+		{ print }
+		END { if (!found && want == "on") print l }' "$rc" >"$tmp" &&
+		cat "$tmp" >"$rc"
+	rm -f "$tmp"
+}
+
+case ${1:-toggle} in
+on|off) set_to "$1" ;;
+toggle) [ "$(state)" = on ] && set_to off || set_to on ;;
+status) ;;
+*) echo "usage: fetch [on|off|toggle|status]" >&2; exit 1 ;;
+esac
+echo "fetch: $(state) (new terminals)"
