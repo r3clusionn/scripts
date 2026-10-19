@@ -7,7 +7,7 @@
  * This reads the root window with XGetImage at whatever depth X runs,
  * converts each pixel through its channel masks to 8 bits per channel, and
  * writes an RGB PNG (zlib for compression and CRCs). Used by dwm's region
- * screenshot key with hacksaw for the selection and xclip for the clipboard.
+ * screenshot key with xregion for the selection and xclip for the clipboard.
  *
  * It reads in strips of 64 rows: X (glamor) reads the screen back through a GPU
  * buffer the size of the request, and mesa keeps that buffer cached, so one
@@ -74,6 +74,9 @@ int main(int argc, char **argv)
 				fprintf(stderr, "grab: bad geometry %s\n", argv[i]);
 				return 2;
 			}
+		} else if (argv[i][0] == '-' && argv[i][1]) {
+			out = NULL; /* -h or an unknown option: usage, never a file named after it */
+			break;
 		} else {
 			out = argv[i];
 		}
