@@ -14,8 +14,10 @@ if pgrep -x bluetoothd >/dev/null &&
 else
   audio ensure
   doas /usr/bin/rc-service bluetooth start >/dev/null 2>&1 9>&-   # bluetoothd must not keep the lock
+  # bluetoothctl exits 0 even with "No default controller available" (the adapter
+  # registers a moment after bluetoothd starts), so look for the success line
   for i in 1 2 3 4 5 6 7 8 9 10; do
-    bluetoothctl --timeout 2 power on >/dev/null 2>&1 && break
+    bluetoothctl --timeout 2 power on 2>&1 | grep -q succeeded && break
     sleep 0.3
   done
 fi
