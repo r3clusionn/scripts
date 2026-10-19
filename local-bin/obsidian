@@ -1,0 +1,9 @@
+#!/bin/sh
+# Official Obsidian tarball in ~/.local/opt/obsidian (bundled Electron, no system packages).
+# NSS/NSPR aren't installed system-wide; reuse the private copies in third_party/runtime.
+export LD_LIBRARY_PATH="$HOME/src/third_party/runtime${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+# Same as the thorium wrapper: undo GTK's doubled DPI in file dialogs while
+# keeping the app UI at 2x. (No --use-angle=gl-egl here: it finds no EGL
+# configs at depth 30 under Electron, while the default GL path initialises cleanly.)
+export GDK_SCALE=2 GDK_DPI_SCALE=0.5
+exec "$HOME/.local/opt/obsidian/obsidian" --force-device-scale-factor=2 "$@"

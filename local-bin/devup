@@ -1,0 +1,80 @@
+#!/bin/sh
+# devup: update the Node.js and Go toolchains in ~/.local/opt (official builds
+# from nodejs.org and go.dev; they replaced Portage's nodejs and go in batch 17).
+#
+#   devup              check both, update when there is a newer release
+#   devup node|go      only that one
+#   devup -n [...]     only report, change nothing
+#
+# Node stays on its major version (26.x); a newer major is reported, and
+# `devup node --major` moves to it. Go follows the latest stable release.
+# Every download is checked against the publisher's SHA-256 before it is used.
+set -eu
+OPT=$HOME/.local/opt
+dry=0 major=0 which=
+for a in "$@"; do
+	case $a in
+	-n) dry=1 ;;
+	--major) major=1 ;;
+	node | go) which="$which $a" ;;
+	*) echo "usage: devup [-n] [node|go] [--major]" >&2; exit 2 ;;
+	esac
+done
+[ -n "$which" ] || which="node go"
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+
+json() { python3 -I -c "$1"; }
+
+update_node() {
+	cur=$(readlink "$OPT/node" | sed 's/^node-v//')
+	curmaj=${cur%%.*}
+	curl -fsSL --proto '=https' https://nodejs.org/dist/index.json -o "$tmp/index.json"
+	pick=$(json "import json
+v=[r['version'][1:] for r in json.load(open('$tmp/index.json'))]
+key=lambda s: tuple(map(int, s.split('.')))
+same=[x for x in v if x.split('.')[0]=='$curmaj']
+print(max(same, key=key) if same else '', max(v, key=key))")
+	same=${pick% *} newest=${pick#* }
+	want=$same
+	[ "$major" = 1 ] && want=$newest
+	echo "node: installed $cur, latest $curmaj.x $same, newest $newest"
+	[ "${newest%%.*}" != "$curmaj" ] && [ "$major" = 0 ] && echo "      node ${newest%%.*} is out: devup node --major"
+	[ -n "$want" ] && [ "$want" != "$cur" ] || return 0
+	[ "$dry" = 1 ] && return 0
+	f=node-v$want-linux-x64.tar.xz
+	curl -fsSL --proto '=https' "https://nodejs.org/dist/v$want/$f" -o "$tmp/$f"
+	curl -fsSL --proto '=https' "https://nodejs.org/dist/v$want/SHASUMS256.txt" -o "$tmp/SHASUMS256.txt"
+	(cd "$tmp" && grep " $f\$" SHASUMS256.txt | sha256sum -c --quiet -)
+	tar -xJf "$tmp/$f" -C "$tmp"
+	rm -rf "$tmp/node-v$want-linux-x64/share/doc" "$tmp/node-v$want-linux-x64/share/man" \
+		"$tmp/node-v$want-linux-x64/CHANGELOG.md" "$tmp/node-v$want-linux-x64/README.md"
+	mv "$tmp/node-v$want-linux-x64" "$OPT/node-v$want"
+	ln -sfn "node-v$want" "$OPT/node"
+	rm -rf "$OPT/node-v$cur"
+	echo "node: now $("$OPT/node/bin/node" --version)"
+}
+
+update_go() {
+	cur=$(readlink "$OPT/go" | sed 's/^go-//')
+	curl -fsSL --proto '=https' 'https://go.dev/dl/?mode=json' -o "$tmp/go.json"
+	set -- $(json "import json
+r=json.load(open('$tmp/go.json'))[0]
+f=[x for x in r['files'] if x['os']=='linux' and x['arch']=='amd64' and x['kind']=='archive'][0]
+print(r['version'][2:], f['filename'], f['sha256'])")
+	new=$1 f=$2 sum=$3
+	echo "go: installed $cur, latest $new"
+	[ "$new" != "$cur" ] || return 0
+	[ "$dry" = 1 ] && return 0
+	curl -fsSL --proto '=https' "https://go.dev/dl/$f" -o "$tmp/$f"
+	echo "$sum  $tmp/$f" | sha256sum -c --quiet -
+	mkdir "$tmp/go-x"
+	tar -xzf "$tmp/$f" -C "$tmp/go-x"
+	rm -rf "$tmp/go-x/go/test"
+	mv "$tmp/go-x/go" "$OPT/go-$new"
+	ln -sfn "go-$new" "$OPT/go"
+	rm -rf "$OPT/go-$cur"
+	echo "go: now $("$OPT/go/bin/go" version)"
+}
+
+for w in $which; do "update_$w"; done

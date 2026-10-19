@@ -30,6 +30,8 @@ The small shell scripts that run a minimal Gentoo laptop with dwm: power plans f
 - **`xclip`:** the part of xclip this system uses, in plain Xlib: store stdin or files as a selection and serve it from the background, or print a selection (`-o`, with `-t TARGETS` to list the types). Big transfers use the ICCCM INCR protocol both ways. It replaces x11-misc/xclip and the libXmu, libXt, libSM and libICE it brings. The screenshot key pipes `grab` into it, and apps that paste images read from it.
 - **`lo-up` and `init.d/lo`:** the loopback interface up with one ioctl, in place of OpenRC's `loopback` service and iproute2. The kernel adds 127.0.0.1 and ::1 by itself when lo comes up.
 - **`resolvconf`:** the two calls iwd makes (`-a` and `-d` per interface, nameserver lines on stdin), kept in `/run/resolvconf/interfaces` and written to `/etc/resolv.conf`. It replaces openresolv, so DNS from DHCP keeps working.
+- **`devup`** (`local-bin/`): updates Node.js and Go in `~/.local/opt` from the official builds instead of Portage's nodejs and go. It reads nodejs.org's and go.dev's release lists, checks every download against the publisher's SHA-256, unpacks it next to the old one and switches the `node` or `go` symlink. Node stays on its major version unless `--major`; `-n` only reports.
+- **`obsidian`** (`local-bin/`): starts the official Obsidian tarball from `~/.local/opt/obsidian` at 2x scale. NSS and NSPR aren't installed system-wide, so it uses the copies in `~/src/third_party/runtime` (the CEF runtime [media-player](https://github.com/r3clusionn/media-player) uses), and it fixes GTK's file dialog size as the Thorium launcher does.
 - **`update`:** sync, review and update @world, rebuild what links to replaced libraries, depclean, news, and list config updates without merging them.
 - **`cmds/fetch`:** [rfetch](https://github.com/r3clusionn/rfetch) at the top of each new terminal window. With no argument it toggles; `on`, `off` and `status` also work. It comments one line in `~/.bashrc` in or out, and adds the line if it is missing. The line checks `$DISPLAY`, so nothing prints on the console login just before X starts.
 - **`cmds/lowram`, `cmds/unlowram`:** a one-off lowest-RAM rfetch screenshot. Sourced in st under dwm (`. ~/cmds/lowram`), `lowram` kills every process except X, elogind, the system bus and the shell's own ancestors (st, dwm, xinit, login), unloads the drivers a screenshot doesn't need (Wi-Fi, Bluetooth, camera, sound, Thunderbolt, sensors), turns swap off, drops caches and shows rfetch. Enter and a drag with [xregion](https://github.com/r3clusionn/xregion) save `~/lowram.png` through `grab`; then `unlowram` brings back the drivers, udev, swap, Wi-Fi, the session bus and the bar in the same boot. elogind and the system bus have to stay: without the bus elogind shuts down and takes X's screen and input with it, and iwd quits.
@@ -46,6 +48,7 @@ cd scripts
 doas sh install.sh                     # scripts, udev rules, boot script, doas rules for you
 doas rc-update del loopback boot && doas rc-update add lo boot   # lo-up instead of iproute2
 cp -r cmds ~/cmds                      # the power plan commands
+install -m 755 local-bin/* ~/.local/bin/   # devup, obsidian (for your user)
 cc -O2 -o ~/cmds/root/keepawake ~/cmds/root/keepawake.c -lX11 -lXext   # for ./bench
 ```
 
@@ -67,6 +70,7 @@ audio toggle        # PipeWire on or off
 bl +10              # backlight up 10%
 colormode status    # sRGB or native colours, the panel's primaries and HDR range
 doas update         # full system update
+devup -n            # newer Node.js or Go? (devup: install them)
 ```
 
 In dwm the keys call them directly (see `dwm/config.h`).
