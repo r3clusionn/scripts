@@ -13,6 +13,10 @@ install -m 755 bin/audio bin/vol bin/bl bin/bt-toggle /usr/local/bin/
 cc -O2 -o /usr/local/bin/colormode bin/colormode.c -lX11 -lXrandr -lm
 cc -O2 -shared -fPIC -o /usr/local/lib/colormode-hdr.so bin/colormode-hdr.c -lX11
 cc -O2 -o /usr/local/bin/grab bin/grab.c -lX11 -lz
+cc -O2 -o /usr/local/bin/xclip bin/xclip.c -lX11
+cc -O2 -o /usr/local/sbin/lo-up bin/lo-up.c
+install -m 755 bin/resolvconf /usr/local/sbin/
+install -m 755 init.d/lo /etc/init.d/
 mkdir -p /usr/local/lib
 cc -O2 -shared -fPIC -o /usr/local/lib/xcb8bit.so bin/xcb8bit.c -ldl -lxcb
 install -m 755 sbin/update sbin/powerprofile /usr/local/sbin/

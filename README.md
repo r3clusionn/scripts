@@ -25,8 +25,11 @@ The small shell scripts that run a minimal Gentoo laptop with dwm: power plans f
 - **`bl +5|-5|N`:** the backlight in percent, without xbacklight. A udev rule makes `brightness` writable by the video group.
 - **`bt-toggle`:** Bluetooth power, starting and stopping `bluetoothd` with it, so it only runs while Bluetooth is on. Every `bluetoothctl` call has a timeout.
 - **`colormode srgb|native|hdr|watch|auto|test|status`:** accurate colours on the wide-gamut OLED, and HDR for fullscreen video (`watch`, with the X driver patch from [x11-amdgpu-hdr](https://github.com/r3clusionn/x11-amdgpu-hdr); `cmds/hdr on|off` is its switch; the `colormode-hdr.so` mpv plugin goes with it). Nearly everything (desktop, browser, video) is sRGB or BT.709, which looks oversaturated on a panel with a gamut near DCI-P3. `srgb` (set at login by `xinitrc`) converts it in the display hardware, from the primaries in the panel's EDID; `native` shows the panel's full gamut.
-- **`grab [-g WxH+X+Y] FILE|-`:** a screen region as PNG at any X depth (shotgun writes nothing at depth 30). The region screenshot key uses it with hacksaw and xclip.
+- **`grab [-g WxH+X+Y] FILE|-`:** a screen region as PNG at any X depth (shotgun writes nothing at depth 30). The region screenshot key uses it with [xregion](https://github.com/r3clusionn/xregion) and `xclip`.
 - **`xcb8bit.so`:** an `LD_PRELOAD` shim for Thorium at X depth 30. ANGLE has no config for the 10-bit root visual, so Chromium composites on the CPU; the shim makes Thorium alone see the 32-bit ARGB visual as its root, so it composites on the GPU while X stays at 10 bits. How to start Thorium with it is at the top of `bin/xcb8bit.c`.
+- **`xclip`:** the part of xclip this system uses, in plain Xlib: store stdin or files as a selection and serve it from the background, or print a selection (`-o`, with `-t TARGETS` to list the types). Big transfers use the ICCCM INCR protocol both ways. It replaces x11-misc/xclip and the libXmu, libXt, libSM and libICE it brings. The screenshot key pipes `grab` into it, and apps that paste images read from it.
+- **`lo-up` and `init.d/lo`:** the loopback interface up with one ioctl, in place of OpenRC's `loopback` service and iproute2. The kernel adds 127.0.0.1 and ::1 by itself when lo comes up.
+- **`resolvconf`:** the two calls iwd makes (`-a` and `-d` per interface, nameserver lines on stdin), kept in `/run/resolvconf/interfaces` and written to `/etc/resolv.conf`. It replaces openresolv, so DNS from DHCP keeps working.
 - **`update`:** sync, review and update @world, rebuild what links to replaced libraries, depclean, news, and list config updates without merging them.
 - **`cmds/fetch`:** [rfetch](https://github.com/r3clusionn/rfetch) at the top of each new terminal window. With no argument it toggles; `on`, `off` and `status` also work. It comments one line in `~/.bashrc` in or out, and adds the line if it is missing. The line checks `$DISPLAY`, so nothing prints on the console login just before X starts.
 - **`cmds/lowram`, `cmds/unlowram`:** a one-off lowest-RAM rfetch screenshot. Sourced in st under dwm (`. ~/cmds/lowram`), `lowram` kills every process except X, elogind, the system bus and the shell's own ancestors (st, dwm, xinit, login), unloads the drivers a screenshot doesn't need (Wi-Fi, Bluetooth, camera, sound, Thunderbolt, sensors), turns swap off, drops caches and shows rfetch. Enter and a drag with [xregion](https://github.com/r3clusionn/xregion) save `~/lowram.png` through `grab`; then `unlowram` brings back the drivers, udev, swap, Wi-Fi, the session bus and the bar in the same boot. elogind and the system bus have to stay: without the bus elogind shuts down and takes X's screen and input with it, and iwd quits.
@@ -35,12 +38,13 @@ The small shell scripts that run a minimal Gentoo laptop with dwm: power plans f
 
 ## How to install
 
-Requires a POSIX shell, doas, OpenRC, PipeWire with WirePlumber (`wpctl`), BlueZ, `pkill`, and a C compiler with libX11, libXrandr, libxcb and zlib (for `colormode`, `grab` and `xcb8bit.so`). The benchmark needs openssl and a C compiler with libX11 and libXext.
+Requires a POSIX shell, doas, OpenRC, PipeWire with WirePlumber (`wpctl`), BlueZ, `pkill`, and a C compiler with libX11, libXrandr, libxcb and zlib (for `colormode`, `grab`, `xclip` and `xcb8bit.so`). The benchmark needs openssl and a C compiler with libX11 and libXext.
 
 ```sh
 git clone https://github.com/r3clusionn/scripts
 cd scripts
 doas sh install.sh                     # scripts, udev rules, boot script, doas rules for you
+doas rc-update del loopback boot && doas rc-update add lo boot   # lo-up instead of iproute2
 cp -r cmds ~/cmds                      # the power plan commands
 cc -O2 -o ~/cmds/root/keepawake ~/cmds/root/keepawake.c -lX11 -lXext   # for ./bench
 ```

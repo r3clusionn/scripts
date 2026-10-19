@@ -1,0 +1,13 @@
+#!/sbin/openrc-run
+# Loopback without iproute2: replaces OpenRC's loopback service in the boot runlevel.
+description="Bring up the loopback interface (lo-up)"
+
+depend() {
+	keyword -jail -prefix -vserver -docker -podman
+}
+
+start() {
+	ebegin "Bringing up network interface lo"
+	/usr/local/sbin/lo-up
+	eend $?
+}
